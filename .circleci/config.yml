@@ -8,7 +8,10 @@ jobs:
       - checkout
       - run:
           name: yarn update
-          command: "sudo npm install -g yarn"
+          command: |
+            "sudo npm install -g yarn"
+            npm install -g rimraf
+            rimraf node_modules
       - restore_cache:
           key: dependency-cache-{{ checksum "package.json" }}
       - run:
@@ -33,6 +36,9 @@ jobs:
       - run:
           name: E2E check
           command: yarn test:e2e
+      - run:
+          name: coverage threshold
+          command: yarn test:cov
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
