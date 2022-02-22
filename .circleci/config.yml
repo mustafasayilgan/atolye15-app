@@ -33,3 +33,7 @@ jobs:
       - run:
           name: E2E check
           command: yarn test:e2e
+      - run:
+          name: build and push docker image
+          command: |
+            docker build -t mustafasayilgan/atolye15-app:v1 .
