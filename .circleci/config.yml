@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: ~/repo
     docker:
-      - image: node:17.5.0-buster-slim
+      - image: circleci/node:10.16.3
     steps:
       - checkout
       - run:
