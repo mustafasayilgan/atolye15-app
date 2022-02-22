@@ -36,4 +36,4 @@ jobs:
       - run:
           name: build and push docker image
           command: |
-            docker build -t mustafasayilgan/atolye15-app:v1 .
+            sudo docker build -t mustafasayilgan/atolye15-app:v1 .
