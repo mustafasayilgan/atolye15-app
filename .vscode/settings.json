@@ -19,5 +19,6 @@
     "key": "HS"
   },
   "debug.node.autoAttach": "on",
-  "typescript.tsdk": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "circleci-vscode.apiToken": ""
 }
