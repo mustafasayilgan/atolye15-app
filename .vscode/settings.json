@@ -20,5 +20,5 @@
   },
   "debug.node.autoAttach": "on",
   "typescript.tsdk": "node_modules/typescript/lib",
-  "circleci-vscode.apiToken": ""
+  "circleci-vscode.apiToken": "02239e023c0e4bb7a4a7a52a6bc33b14b9195ea7"
 }
