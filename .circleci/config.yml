@@ -9,7 +9,7 @@ jobs:
       - run:
           name: yarn update
           command: |
-            "npm install -g yarn"
+            "sudo npm install -g yarn"
       - restore_cache:
           key: dependency-cache-{{ checksum "package.json" }}
       - run:
@@ -38,6 +38,7 @@ jobs:
           name: coverage threshold
           command: yarn test:cov
       - setup_remote_docker:
+          docker_layer_caching: false
           version: 19.03.13
       - run:
           name: build and push docker image
