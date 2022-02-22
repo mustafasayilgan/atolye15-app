@@ -33,7 +33,9 @@ jobs:
       - run:
           name: E2E check
           command: yarn test:e2e
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           name: build and push docker image
           command: |
-            sudo docker build -t mustafasayilgan/atolye15-app:v1 .
+            docker build -t mustafasayilgan/atolye15-app:v1 .
