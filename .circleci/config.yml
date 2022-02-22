@@ -39,6 +39,7 @@ jobs:
           command: yarn test:cov
       - setup_remote_docker:
           docker_layer_caching: true
+          version: 19.03.13
       - run:
           name: build and push docker image
           command: docker build -t mustafasayilgan/atolye15-app:v1 .
