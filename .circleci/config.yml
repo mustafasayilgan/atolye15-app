@@ -1,47 +1,61 @@
 version: 2.1
 jobs:
-  build:
-    working_directory: ~/repo
-    docker:
-      - image: circleci/node:10.16.3
+    build:
+        working_directory: ~/repo
+        docker:
+            - image: circleci/node:10.16.3
+        steps:
+            - checkout
+            - run:
+                  name: yarn update
+                  command: "sudo npm install -g yarn"
+            - restore_cache:
+                  key: dependency-cache-{{ checksum "package.json" }}
+            - run:
+                  name: Install Dependencies
+                  command: yarn install
+            - save_cache:
+                  key: dependency-cache-{{ checksum "package.json" }}
+                  paths:
+                      - ./node_modules
+            - run:
+                  name: yarn check
+                  command: yarn test
+            - run:
+                  name: lint check
+                  command: yarn lint
+            - run:
+                  name: format check
+                  command: yarn format:check
+            - run:
+                  name: coverage threshold
+                  command: yarn test:cov
+            - run:
+                  name: E2E check
+                  command: yarn test:e2e
+            - run:
+                  name: coverage threshold
+                  command: yarn test:cov
+            - setup_remote_docker:
+                  docker_layer_caching: false
+                  version: 19.03.13
+            - run:
+                  name: build and push docker image
+                  command: |
+                      docker build -t mustafasayilgan/atolye15-app:v1 .
+                      echo $DOCKER_PWD | docker login -u $DOCKER_LOGIN --password-stdin
+                      docker push mustafasayilgan/atolye15-app:v1
+deploy:
+    description: deploy application to Google Kubernetes Engine
+    machine: true
     steps:
-      - checkout
-      - run:
-          name: yarn update
-          command: "sudo npm install -g yarn"
-      - restore_cache:
-          key: dependency-cache-{{ checksum "package.json" }}
-      - run:
-          name: Install Dependencies
-          command: yarn install
-      - save_cache:
-          key: dependency-cache-{{ checksum "package.json" }}
-          paths:
-            - ./node_modules
-      - run:
-          name: yarn check
-          command: yarn test
-      - run:
-          name: lint check
-          command: yarn lint
-      - run:
-          name: format check
-          command: yarn format:check
-      - run:
-          name: coverage threshold
-          command: yarn test:cov
-      - run:
-          name: E2E check
-          command: yarn test:e2e
-      - run:
-          name: coverage threshold
-          command: yarn test:cov
-      - setup_remote_docker:
-          docker_layer_caching: false
-          version: 19.03.13
-      - run:
-          name: build and push docker image
-          command: |
-            docker build -t mustafasayilgan/atolye15-app:v1 .
-            echo $DOCKER_PWD | docker login -u $DOCKER_LOGIN --password-stdin
-            docker push mustafasayilgan/atolye15-app:v1
+        # Install `gcloud` and `kubectl` if not already installed.
+        - gcp-gke/install
+        # Initialize the `gcloud` CLI.
+        - gcp-gke/init
+        # Update a deployment Docker image.
+        - gcp-gke/rollout-image
+        - kubectl apply -f nestjs.yml
+    deployment: sayilgan-k8s
+    container: atolye15-app
+    image: mustafasayilgan/atolye15-app:v1
