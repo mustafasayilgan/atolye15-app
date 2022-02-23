@@ -115,7 +115,7 @@ jobs:
     steps:
       - run: echo << parameters.gcp_key_name >> | gcloud auth activate-service-account --key-file=-
       - run: gcloud --quiet config set project << parameters.gcp_project_name >>
-      - run: gcloud --quiet config set compute/zone us-central1
+      - run: gcloud --quiet config set compute/zone us-central1-c
       - kube-deploy:
           namespace_name: << parameters.namespace_name >>
           cluster: << parameters.kube_cluster >>
