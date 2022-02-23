@@ -48,5 +48,6 @@ jobs:
             - run:
                   name: deploy k8s
                   command: |
+                      install google-cloud-sdk-app-engine-java
                       gcloud components install kubectl
                       kubectl apply -f nestjs.yml
