@@ -85,6 +85,7 @@ jobs:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
+          version: 19.03.13
       - docker-build-push:
           dockerfile: Dockerfile
           app_name: atolye15-app
@@ -95,6 +96,7 @@ jobs:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
+          version: 19.03.13
       - docker-build-push:
           dockerfile: Dockerfile
           app_name: atolye15-app
