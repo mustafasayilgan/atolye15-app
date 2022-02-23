@@ -45,17 +45,7 @@ jobs:
                       docker build -t mustafasayilgan/atolye15-app:v1 .
                       echo $DOCKER_PWD | docker login -u $DOCKER_LOGIN --password-stdin
                       docker push mustafasayilgan/atolye15-app:v1
-deploy:
-    description: deploy application to Google Kubernetes Engine
-    machine: true
-    steps:
-        # Install `gcloud` and `kubectl` if not already installed.
-        - gcp-gke/install
-        # Initialize the `gcloud` CLI.
-        - gcp-gke/init
-        # Update a deployment Docker image.
-        - gcp-gke/rollout-image
-        - kubectl apply -f nestjs.yml
-    deployment: sayilgan-k8s
-    container: atolye15-app
-    image: mustafasayilgan/atolye15-app:v1
+            - run:
+                  name: deploy k8s
+                  command: |
+                      kubectl apply -f nestjs.yml
