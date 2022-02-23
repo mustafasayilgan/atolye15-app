@@ -1,59 +1,149 @@
 version: 2.1
+executors:
+  main-executor:
+    working_directory: ~/project
+    docker:
+      - image: circleci/node:10.16.3
+
+  deploy-executor:
+    working_directory: ~/project
+    machine:
+      image: ubuntu-2004:202201-02
+
+commands:
+  docker-build-push:
+    description: "builds docker image and push docker image to dockerhub"
+    parameters:
+      dockerfile:
+        type: string
+      app_name:
+        type: string
+      branch:
+        type: string
+    steps:
+      - run:
+          name: yarn update
+          command: "sudo npm install -g yarn"
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package.json" }}
+      - run:
+          name: Install Dependencies
+          command: yarn install
+      - save_cache:
+          key: dependency-cache-{{ checksum "package.json" }}
+          paths:
+           - ./node_modules
+      - run:
+          name: yarn check
+          command: yarn test
+      - run:
+          name: lint check
+          command: yarn lint                    
+      - run:
+          name: E2E check
+          command: yarn test:e2e
+      - run:
+          name: coverage threshold
+          command: yarn test:cov  
+      - run: docker build -t mustafasayilgan/<< parameters.app_name >>:$CIRCLE_SHA1 -f << parameters.dockerfile >> .
+      - run: docker build -t mustafasayilgan/<< parameters.app_name >>:<< parameters.branch >>_latest -f << parameters.dockerfile >> .
+      - run: docker login --username $DOCKER_LOGIN --password $DOCKER_PWD
+      - run: docker push mustafasayilgan/<< parameters.app_name >>:$CIRCLE_SHA1
+      - run: docker push mustafasayilgan/<< parameters.app_name >>:<< parameters.branch >>_latest
+
+  kube-deploy:
+    description: "deploys docker image to kubernetes cluster specified"
+    parameters:
+      cluster:
+        type: string
+      deployment_name:
+        type: string
+      app_name:
+        type: string
+      gcp_key_name:
+        type: string
+      gcp_project_name:
+        type: string        
+    steps:
+      - run:
+          name: Install kubectl
+          command: |
+            sudo curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+            echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+            sudo apt-get update
+            sudo apt-get install -y kubectl
+
+      - run: gcloud --quiet container clusters get-credentials << parameters.cluster >>
+      
+      - run: kubectl set image deployment -n << parameters.namespace_name >> << parameters.deployment_name >> << parameters.app_name >>=mustafasayilgan/<< parameters.app_name >>:$CIRCLE_SHA1 --record
 jobs:
-    build:
-        working_directory: ~/repo
-        docker:
-            - image: circleci/node:10.16.3
-        steps:
-            - checkout
-            - run:
-                  name: yarn update
-                  command: "sudo npm install -g yarn"
-            - restore_cache:
-                  key: dependency-cache-{{ checksum "package.json" }}
-            - run:
-                  name: Install Dependencies
-                  command: yarn install
-            - save_cache:
-                  key: dependency-cache-{{ checksum "package.json" }}
-                  paths:
-                      - ./node_modules
-            - run:
-                  name: yarn check
-                  command: yarn test
-            - run:
-                  name: lint check
-                  command: yarn lint
-            - run:
-                  name: format check
-                  command: yarn format:check
-            - run:
-                  name: coverage threshold
-                  command: yarn test:cov
-            - run:
-                  name: E2E check
-                  command: yarn test:e2e
-            - run:
-                  name: coverage threshold
-                  command: yarn test:cov
-            - setup_remote_docker:
-                  docker_layer_caching: false
-                  version: 19.03.13
-            - run:
-                  name: build and push docker image
-                  command: |
-                      docker build -t mustafasayilgan/atolye15-app:v1 .
-                      echo $DOCKER_PWD | docker login -u $DOCKER_LOGIN --password-stdin
-                      docker push mustafasayilgan/atolye15-app:v1
+  build-push-stage:
+    executor: main-executor
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - docker-build-push:
+          dockerfile: Dockerfile
+          app_name: atolye15-app
+          branch: develop
+  build-push-prod:
+    executor: main-executor
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - docker-build-push:
+          dockerfile: Dockerfile
+          app_name: atolye15-app
+          branch: main
+  deploy:
+    parameters:
+      namespace_name:
+        type: string
+      kube_cluster:
+        type: string
+      gcp_key_name:
+        type: string
+      gcp_project_name:
+        type: string        
+    executor: deploy-executor
+    steps:
+      - run: echo << parameters.gcp_key_name >> | gcloud auth activate-service-account --key-file=-
+      - run: gcloud --quiet config set project << parameters.gcp_project_name >>
+      - run: gcloud --quiet config set compute/zone us-central1
+      - kube-deploy:
+          namespace_name: << parameters.namespace_name >>
+          cluster: << parameters.kube_cluster >>
+          deployment_name: atolye15-app-deployment
+          app_name: atolye15-app
+          gcp_key_name: << parameters.gcp_key_name >>
+          gcp_project_name: << parameters.gcp_project_name >>          
+
 workflows:
-    version: 2
-deploy:
+  test-build-deploy-stage:
     jobs:
-        build:
-            docker:
-                - image: cloud-sdk:373.0.0-alpine
-            steps:
-                - checkout
-                - run:
-                  name: deploy k8s
-                  command: kubectl apply -f deployment.yml -n stage
+      - build-push-stage:
+          filters:
+            branches:
+              only: develop
+      - deploy:
+          namespace_name: stage
+          kube_cluster: sayilgan-k8s
+          gcp_key_name: $GCLOUD_SERVICE_KEY
+          gcp_project_name: lyrical-beach-341612          
+          requires:
+            - build-push-stage
+  test-build-deploy-master:
+    jobs:
+      - build-push-prod:
+          filters:
+            branches:
+              only: main
+      - deploy:
+          namespace_name: production
+          kube_cluster: sayilgan-k8s
+          gcp_key_name: $GCLOUD_SERVICE_KEY
+          gcp_project_name: lyrical-beach-341612          
+          requires:
+            - build-push-prod
