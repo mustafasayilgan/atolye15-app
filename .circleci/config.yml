@@ -54,6 +54,8 @@ commands:
   kube-deploy:
     description: "deploys docker image to kubernetes cluster specified"
     parameters:
+      namespace_name:
+        type: string    
       cluster:
         type: string
       deployment_name:
