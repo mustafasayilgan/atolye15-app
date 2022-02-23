@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: atolye15-app
+spec:
+  selector:
+    app: atolye15-app
+  # This needs to be a NodePort so that our ingress controller in GCP can access the service
+  # Not needed in ingress-controller in minikube
+  type: NodePort
+  ports:
+    - protocol: "TCP"
+      nodePort: 32111
+      port: 80
+---
+apiVersion: v1
+kind: Deployment
+metadata:
+  labels:
+    app: atolye15-app
+  name: atolye15-app
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: atolye15-app
+    spec:
+      containers:
+        - name: atolye15-app
+          image: mustafasayilgan/atolye15-app:v1
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: nest-configs
+          resources:
+      limits:
+        memory: 512Mi
+        cpu: "1"
+      requests:
+        memory: 256Mi
+        cpu: "0.2"
+        mountPath: /etc/nest/conf.d
+        # A health check is need for GCP and other ingress controllers to route
+        # traffic to a pod
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+      # Load the configuration files for nginx
+      volumes:
+        - name: nest-configs
+          configMap:
+            name: nest-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nest-config
+data:
+  default.conf: |
+    map $http_upgrade $connection_upgrade {
+      default upgrade;
+      '' close;
+    }
+    # Add upstream for letsencrypt job
+    upstream letsencrypt {
+      server letsencrypt:80 max_fails=0 fail_timeout=1s;
+    }
+    server {
+      listen 3000;
+      listen [::]:3000;
+      server_name  _;
+      location / {
+        add_header Content-Type text/plain;
+        return 200 "Kubernetes + Let's encrypt demo. This should be accessible through https!";
+      }
+      # Redirect all traffic in /.well-known/ to lets encrypt
+      location ^~ /.well-known/acme-challenge/ {
+        proxy_pass http://letsencrypt;
+        proxy_http_version 1.1;
+        proxy_set_header upgrade $http_upgrade;
+        proxy_set_header connection $connection_upgrade;
+        proxy_set_header Host $http_host;
+        proxy_set_header x-forwarded-host $http_host;
+        proxy_set_header x-real-ip $remote_addr;
+        proxy_set_header x-forwarded-for $proxy_add_x_forwarded_for;
+        proxy_set_header x-forwarded-protocol $scheme;
+        proxy_set_header x-forwarded-proto $scheme;
+      }
+    }
