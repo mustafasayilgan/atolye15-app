@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atolye15-app-ingress-production
+  namespace: production
+spec:
+  rules:
+    - http:
+        paths:
+          - backend:
+              service:
+                name: atolye15-app-service
+                port:
+                  number: 80
+            path: /
+            pathType: ImplementationSpecific

@@ -5,7 +5,7 @@ metadata:
 type: Opaque
 # Create an empty secret (with no data) in order for the update to work
 ---
-apiVersion: v1
+apiVersion: batch/v1
 kind: Job
 metadata:
   name: letsencrypt-job
@@ -21,7 +21,7 @@ spec:
       containers:
         # Bash script that starts an http server and launches certbot
         # Fork of github.com/sjenning/kube-nginx-letsencrypt
-        - image: quay.io/hiphipjorge/kube-nginx-letsencrypt:latest
+        - image: mustafasayilgan/letsencrypt-certbot:v04
           name: letsencrypt
           imagePullPolicy: Always
           ports:
@@ -29,11 +29,13 @@ spec:
               containerPort: 80
           env:
             - name: DOMAINS
-              value: sayilgan-k8s
+              value: hello.atolye15demo.com
             - name: EMAIL
               value: mustafasayilgann@gmail.com
             - name: SECRET
               value: letsencrypt-certs
+      imagePullSecrets:
+        - name: regcred
       restartPolicy: Never
 ---
 apiVersion: v1
